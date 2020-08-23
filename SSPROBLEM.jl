@@ -80,23 +80,36 @@ function main()
     condition = (u, t, integrator) -> conditiontemp(u, t, integrator, ssabstol, ssreltol)
     cb        = DiscreteCallback(condition, affect!)
     prob1     = ODEProblem(ODESYSTEM, u0, tspan, p)
+
+    #Solve for steady state by integrating to t --> inf
     sol1      = solve(prob1, Kvaerno3(), abstol = 1e-8, reltol = 1e-8)
+
+    #Solve for steady state using manual implementation of TerminateSteadyState callback
     sol2      = solve(prob1, Kvaerno3(), abstol = 1e-8, reltol = 1e-8, callback = cb)
 
+    #solve for steady state using DynamicSS solver
     prob3 = SteadyStateProblem(ODESYSTEM, u0, p)
     sol3  = solve(prob3, DynamicSS(Kvaerno3()), abstol = ssabstol, reltol = ssreltol) 
 
+    #had a quirk where I couldn't plot on log10 x scale b/c of 0 initial value. hacky workaround
     tset = exp10.(range(-16, stop=15, length=1000))
     fine = sol1(tset)'
     thetaA = fine[:,1]
     thetaB = fine[:,2]
-    thetaV = 1 .- thetaA .- thetaB
+    #thetaV = 1 .- thetaA .- thetaB
+
+    #Store true steady state solution from integrating to t --> inf
     ssvals = [thetaA[end]; thetaB[end]]
+
+    #create plots of variables to illustrate time scales for reaching steady state
     p1   = plot(tset, thetaA, xscale = :log10, xlabel = "time", ylabel = "thetaA", ylim = (0,1), xlim = (1e-16, 1e15), legend = false)   
     p2   = plot(tset, thetaB, xscale = :log10, xlabel = "time", ylabel = "thetaB", ylim = (0,1.5*maximum(thetaB)), xlim = (1e-16, 1e15), legend = false)
-    p3   = plot(tset, thetaV, xscale = :log10, xlabel = "time", ylabel = "thetaV", ylim = (0,1), xlim = (1e-16, 1e15), legend = false)
+    #p3   = plot(tset, thetaV, xscale = :log10, xlabel = "time", ylabel = "thetaV", ylim = (0,1), xlim = (1e-16, 1e15), legend = false)
 
-    display(plot(p1, p2, p3, layout = (3,1), legend = false))
+    #display plots
+    display(plot(p1, p2, layout = (2,1), legend = false))
+    
+    #display true steady state vs. two obtained using callbacks to terminate integration.
     display([ssvals sol2[end] sol3])
 end
 
